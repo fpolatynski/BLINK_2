@@ -10,26 +10,25 @@
 static const char *TAG = "WS_SERVER";
 
 // WIFI Conectivity
-#define WIFI_SSID "<SSID>"
-#define WIFI_PASS "<PASSWORD>"
+#define WIFI_SSID "vodafone1AC7"
+#define WIFI_PASS "AUJP25MEMZKSN3"
 void wifi_init_sta();
 //
 // LED
 #define led1 12
 
 // HTTP Server
+httpd_handle_t server = NULL;
+int socket_fd = -1;
 httpd_handle_t start_webserver(void);
 static esp_err_t connection_handler(httpd_req_t *req);
 static esp_err_t send(httpd_req_t *req);
-httpd_req_t *active_client;
 
 // LED  Blink
 uint8_t led_level = 1;
 TimerHandle_t xTimer;
 esp_err_t init_led(void);
 esp_err_t blink_led(void);
-esp_err_t set_timer(void);
-void xTimerCallback(TimerHandle_t xTimer); 
 
 void app_main(void){
     // WIFI
@@ -40,7 +39,13 @@ void app_main(void){
     init_led();
 
     // SERVER
-    httpd_handle_t server = start_webserver();
+    server = start_webserver();
+
+    // while (true){
+    //     vTaskDelay(1000 / portTICK_PERIOD_MS);
+    //     blink_led();
+    //     send();
+    // }
 
 }
 
@@ -90,12 +95,9 @@ httpd_handle_t start_webserver(void){
 }
 static esp_err_t connection_handler(httpd_req_t *req){
     ESP_LOGI(TAG, "Handshake done");
-    active_client = req;
-    while (true){
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-        blink_led();
-        send(req);
-    }
+    socket_fd = httpd_req_to_sockfd(req);
+    ESP_LOGI(TAG, "Socket: %d", socket_fd);
+    send(req);
     return ESP_OK;
 }
 
@@ -105,6 +107,10 @@ static esp_err_t send(httpd_req_t *req){
     ws_pkt.type = HTTPD_WS_TYPE_BINARY;
     ws_pkt.payload = &led_level;
     ws_pkt.len = sizeof(led_level);
+    ESP_LOGI(TAG, "Sending data: %d to socket %d", led_level, socket_fd);
+    if (httpd_ws_send_data(server, socket_fd, &ws_pkt)){
+        ESP_LOGE(TAG, "Failed to send data");
+    }
     httpd_ws_send_frame(req, &ws_pkt);
     return ESP_OK;
 }

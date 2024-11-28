@@ -13,7 +13,7 @@ static const char *TAG = "WS_SERVER";
 #define WIFI_SSID "vodafone1AC7"
 #define WIFI_PASS "AUJP25MEMZKSN3"
 void wifi_init_sta();
-//
+
 // LED
 #define led1 12
 
@@ -40,13 +40,6 @@ void app_main(void){
 
     // SERVER
     server = start_webserver();
-
-    // while (true){
-    //     vTaskDelay(1000 / portTICK_PERIOD_MS);
-    //     blink_led();
-    //     send();
-    // }
-
 }
 
 // Minimalistic function to establish wifi connection
@@ -63,17 +56,18 @@ void wifi_init_sta(){
             .password = WIFI_PASS
         },
     };
-    // Station mode is default mode of wifi
+    // Station mode is default mode sot its not needed
     //esp_wifi_set_mode(WIFI_MODE_STA);
 
     esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config);
     esp_wifi_start();
-    // Smarter would be to create event handler
-    // but I am lazy and stupid and it works:)
+
+    // Smarter would be to create event handler. It's super error friendly
+    // but I am lazy  and it works:)
     esp_wifi_connect();
 }
 
-
+// Function to establish websocket connection with ROS2
 httpd_handle_t start_webserver(void){
     httpd_handle_t server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
@@ -93,24 +87,27 @@ httpd_handle_t start_webserver(void){
     }
     return NULL;
 }
+
+// Execute after connection is established
 static esp_err_t connection_handler(httpd_req_t *req){
     ESP_LOGI(TAG, "Handshake done");
-    socket_fd = httpd_req_to_sockfd(req);
-    ESP_LOGI(TAG, "Socket: %d", socket_fd);
-    send(req);
+    //socket_fd = httpd_req_to_sockfd(req); \\ For future plan to make it asynchronous
+    while (1){
+        // Every 1.5s blink led and send its state to ROS2
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        blink_led();
+        send(req);
+    }
     return ESP_OK;
 }
 
+// Send led state to ROS2
 static esp_err_t send(httpd_req_t *req){
     httpd_ws_frame_t ws_pkt;
-    memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t)); // Clear frame structur
+    memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t)); // Clear frame structure
     ws_pkt.type = HTTPD_WS_TYPE_BINARY;
     ws_pkt.payload = &led_level;
     ws_pkt.len = sizeof(led_level);
-    ESP_LOGI(TAG, "Sending data: %d to socket %d", led_level, socket_fd);
-    if (httpd_ws_send_data(server, socket_fd, &ws_pkt)){
-        ESP_LOGE(TAG, "Failed to send data");
-    }
     httpd_ws_send_frame(req, &ws_pkt);
     return ESP_OK;
 }

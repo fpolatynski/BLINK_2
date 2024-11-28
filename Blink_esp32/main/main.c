@@ -10,8 +10,8 @@
 static const char *TAG = "WS_SERVER";
 
 // WIFI Conectivity
-#define WIFI_SSID "vodafone1AC7"
-#define WIFI_PASS "AUJP25MEMZKSN3"
+#define WIFI_SSID "SSID"
+#define WIFI_PASS "password"
 void wifi_init_sta();
 
 // LED
